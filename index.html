@@ -460,6 +460,7 @@ let html5QrCode = null;
 let currentQRTaskId = null;
 let currentStudentTaskIndex = 0;
 let scannerOpen = false;
+let currentScannedTask = null;
 
 // ===== STORAGE =====
 function saveTasks() { localStorage.setItem('qrh_tasks', JSON.stringify(tasks)); }
@@ -586,23 +587,33 @@ function renderAdminTasks() {
 }
 
 // ===== QR GENERATE =====
+// QR icine tum gorev verisini gom - farkli cihazlarda da calisir
 function showQR(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
   currentQRTaskId = taskId;
 
   document.getElementById('qrModalTitle').textContent = task.title;
-  document.getElementById('qrModalSub').textContent = `Görev #${task.order} için QR kod`;
+  document.getElementById('qrModalSub').textContent = `Gorev #${task.order} icin QR kod`;
 
   const container = document.getElementById('qr-display');
   container.innerHTML = '';
 
+  // QR icerigi: JSON olarak gorev verisi - localStorage'a gerek yok
+  const qrPayload = JSON.stringify({
+    qrh: 1,
+    order: task.order,
+    title: task.title,
+    desc: task.desc,
+    answer: task.answer
+  });
+
   new QRCode(container, {
-    text: task.id,
+    text: qrPayload,
     width: 200, height: 200,
     colorDark: '#000000',
     colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
+    correctLevel: QRCode.CorrectLevel.M
   });
 
   document.getElementById('qrModal').classList.add('open');
@@ -665,14 +676,16 @@ function renderCurrentTask() {
   const area = document.getElementById('currentTaskArea');
   const scanBtn = document.getElementById('scanBtn');
 
+  // Gorevler localStorage'da yoksa bile QR tarayarak oynayabilir
   if (tasks.length === 0) {
     area.innerHTML = `
       <div class="card">
         <p style="color:var(--muted); text-align:center; font-size:0.9rem; line-height:1.6">
-          ⏳ Henüz görev oluşturulmadı.<br>Adminini bekle!
+          📷 QR kodunu tara ve göreve başla!<br>
+          <span style="font-size:0.8rem; opacity:0.7">Görevler QR kodlarının içinde gizli</span>
         </p>
       </div>`;
-    scanBtn.style.display = 'none';
+    scanBtn.style.display = 'block';
     return;
   }
 
@@ -758,39 +771,80 @@ function closeScanner() {
 function onScanSuccess(decodedText) {
   closeScanner();
 
-  const expectedTask = tasks[currentStudentTaskIndex];
-  if (!expectedTask) return;
+  // QR icerigini parse et
+  var scannedTask = null;
+  try {
+    var parsed = JSON.parse(decodedText);
+    if (parsed && parsed.qrh === 1) {
+      scannedTask = parsed;
+    }
+  } catch(e) {
+    // JSON degil, eski format veya baska QR
+  }
 
-  if (decodedText !== expectedTask.id) {
-    const foundTask = tasks.find(t => t.id === decodedText);
-    if (foundTask) {
-      showStudentAlert('error', `⚠️ Bu, Görev #${foundTask.order} için QR kod. Sıradaki görevin QR'ını tara: #${expectedTask.order}`);
+  if (!scannedTask) {
+    showStudentAlert('error', '❌ Geçersiz QR! Bu sisteme ait bir QR Hunter kodu değil.');
+    return;
+  }
+
+  // Sira kontrolu
+  var expectedOrder = currentStudentTaskIndex + 1;
+  if (scannedTask.order !== expectedOrder) {
+    if (scannedTask.order < expectedOrder) {
+      showStudentAlert('error', '⚠️ Bu görevi zaten tamamladın! Sıradaki görev: #' + expectedOrder);
     } else {
-      showStudentAlert('error', '❌ Geçersiz QR! Bu sisteme ait bir kod değil.');
+      showStudentAlert('error', '⚠️ Sırayı atlayamazsın! Önce Görev #' + expectedOrder + ' QR'ını tara.');
     }
     return;
   }
 
-  if (!expectedTask.answer) {
+  // Dogru gorev - gostermeye hazir
+  currentScannedTask = scannedTask;
+
+  if (!scannedTask.answer) {
+    // Cevap gerekmez, direkt ilerle
     advanceTask();
   } else {
+    // Cevap gerekiyor - gorevi goster, cevap kutusu ac
     showStudentAlert('info', '✅ Doğru QR tarandı! Şimdi cevabı yaz.');
-    renderCurrentTask();
-    setTimeout(() => {
-      const inp = document.getElementById('answerInput');
+    renderScannedTask(scannedTask);
+    setTimeout(function() {
+      var inp = document.getElementById('answerInput');
       if (inp) inp.focus();
     }, 100);
   }
 }
 
+function renderScannedTask(task) {
+  var area = document.getElementById('currentTaskArea');
+  area.innerHTML = `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <span class="badge badge-yellow">Görev #` + task.order + `</span>
+        <span class="badge badge-green">✅ QR Tarandı</span>
+      </div>
+      <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; margin-bottom:10px">` + esc(task.title) + `</div>
+      <div style="color:var(--muted); font-size:0.88rem; line-height:1.6; margin-bottom:16px">` + esc(task.desc) + `</div>
+      <hr class="divider">
+      <div class="input-group" style="margin-bottom:10px">
+        <label>Cevabın</label>
+        <input type="text" id="answerInput" placeholder="Cevabını yaz..."
+          onkeydown="if(event.key==='Enter')checkAnswer()">
+      </div>
+      <button class="btn btn-success" style="width:100%" onclick="checkAnswer()">✅ Cevabı Kontrol Et</button>
+    </div>
+  `;
+}
+
 function checkAnswer() {
-  const input = document.getElementById('answerInput');
+  var input = document.getElementById('answerInput');
   if (!input) return;
-  const val = input.value.trim().toLowerCase();
-  const task = tasks[currentStudentTaskIndex];
+  var val = input.value.trim().toLowerCase();
+  // Cevabi hem localStorage'daki hem de scan edilen gorevden al
+  var task = currentScannedTask || tasks[currentStudentTaskIndex];
   if (!task) return;
 
-  if (val === task.answer) {
+  if (val === (task.answer || '').toLowerCase()) {
     clearStudentAlert();
     advanceTask();
   } else {
