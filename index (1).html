@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Hunter 🎯</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #f0c040;
+    --accent2: #e05a5a;
+    --accent3: #5ab4e0;
+    --text: #f0eeea;
+    --muted: #7a7a9a;
+    --success: #4ecb8d;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999;
+  }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.4rem;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600; font-size: 0.85rem;
+    padding: 10px 20px; border-radius: 10px;
+    border: none; cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-accent { background: var(--accent); color: #0a0a0f; }
+  .btn-accent:hover { background: #ffd44a; }
+  .btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--accent2); color: #fff; }
+  .btn-danger:hover { background: #f07070; }
+  .btn-success { background: var(--success); color: #0a0a0f; }
+  .btn-blue { background: var(--accent3); color: #0a0a0f; }
+  .btn-lg { padding: 16px 32px; font-size: 1rem; border-radius: 14px; width: 100%; }
+  .btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+
+  .screen { display: none; animation: fadeIn 0.3s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .container { max-width: 540px; margin: 0 auto; padding: 24px 16px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 1.1rem;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+
+  .input-group { margin-bottom: 14px; }
+  .input-group label {
+    display: block; font-size: 0.8rem; font-weight: 500;
+    color: var(--muted); margin-bottom: 6px; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .input-group input, .input-group textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+    outline: none;
+    resize: vertical;
+  }
+  .input-group input:focus, .input-group textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .hero {
+    text-align: center;
+    padding: 48px 24px 32px;
+  }
+  .hero-icon {
+    font-size: 4rem; margin-bottom: 16px;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 2rem;
+    letter-spacing: -1px; margin-bottom: 10px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+
+  .task-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .task-item:hover { border-color: var(--accent); }
+  .task-item-header {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 10px;
+  }
+  .task-num {
+    background: var(--accent);
+    color: #0a0a0f;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 0.75rem;
+    padding: 3px 9px; border-radius: 6px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .task-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.95rem;
+    flex: 1;
+  }
+  .task-desc {
+    font-size: 0.85rem; color: var(--muted);
+    margin-top: 6px; line-height: 1.5;
+  }
+  .task-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 360px; width: 100%;
+    text-align: center;
+    animation: modalIn 0.3s ease;
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .modal h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+  .modal p { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+  #qr-display {
+    display: flex; justify-content: center;
+    margin-bottom: 20px;
+    background: #fff;
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+  #reader { border-radius: 12px; overflow: hidden; border: 2px solid var(--accent); }
+
+  .progress-wrap {
+    background: var(--border);
+    border-radius: 100px;
+    height: 6px; margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    background: linear-gradient(90deg, var(--accent), #f08040);
+    height: 100%; border-radius: 100px;
+    transition: width 0.5s ease;
+  }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.8rem; color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 600;
+    font-family: 'Syne', sans-serif;
+  }
+  .badge-yellow { background: rgba(240,192,64,0.15); color: var(--accent); border: 1px solid rgba(240,192,64,0.3); }
+  .badge-green { background: rgba(78,203,141,0.15); color: var(--success); border: 1px solid rgba(78,203,141,0.3); }
+  .badge-red { background: rgba(224,90,90,0.15); color: var(--accent2); border: 1px solid rgba(224,90,90,0.3); }
+
+  .alert {
+    padding: 12px 16px; border-radius: 10px;
+    font-size: 0.88rem; margin-bottom: 14px;
+    display: none; line-height: 1.5;
+  }
+  .alert.show { display: block; }
+  .alert-error { background: rgba(224,90,90,0.12); border: 1px solid rgba(224,90,90,0.3); color: #f09090; }
+  .alert-success { background: rgba(78,203,141,0.12); border: 1px solid rgba(78,203,141,0.3); color: #80e0b0; }
+  .alert-info { background: rgba(90,180,224,0.12); border: 1px solid rgba(90,180,224,0.3); color: #90c8e8; }
+
+  .complete-hero { text-align: center; padding: 48px 20px; }
+  .complete-hero .big-icon {
+    font-size: 5rem; margin-bottom: 20px;
+    display: block;
+    animation: bounce 1s ease-in-out 2;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-16px); }
+  }
+  .complete-hero h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.8rem;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--accent), #f08040);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .complete-hero p { color: var(--muted); font-size: 0.95rem; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .scan-area { margin: 16px 0; }
+
+  .switch-btn {
+    font-size: 0.8rem; color: var(--muted);
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; padding: 4px;
+  }
+  .switch-btn:hover { color: var(--accent); }
+
+  @media (max-width: 400px) {
+    .hero h1 { font-size: 1.6rem; }
+    .card { padding: 18px; }
+    .container { padding: 16px 12px; }
+    .header { padding: 14px 16px; }
+    .logo { font-size: 1.2rem; }
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">QR <span>Hunter</span> 🎯</div>
+  <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" id="switchModeBtn" onclick="toggleMode()">👨‍🏫 Admin</button>
+    <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Sıfırla</button>
+  </div>
+</header>
+
+<!-- LANDING -->
+<div class="screen active" id="screen-landing">
+  <div class="container">
+    <div class="hero">
+      <span class="hero-icon">🗺️</span>
+      <h1>QR <span>Hunter</span></h1>
+      <p>QR kodları tarayarak görevleri tamamla, bilgini test et ve ilerle!</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>Başlamak için giriş yap</div>
+      <div class="input-group">
+        <label>Adın</label>
+        <input type="text" id="studentName" placeholder="Adını gir..." maxlength="30"
+          onkeydown="if(event.key==='Enter')startStudent()">
+      </div>
+      <button class="btn btn-accent btn-lg" onclick="startStudent()">🚀 Oyuna Başla</button>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:0.82rem; margin-top:12px;">
+      Admin misin? <button class="switch-btn" onclick="goToAdmin()">→ Admin paneline geç</button>
+    </p>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div class="screen" id="screen-admin-login">
+  <div class="container">
+    <div class="hero" style="padding-top:32px">
+      <span class="hero-icon">🔐</span>
+      <h1 style="font-size:1.6rem">Admin <span>Girişi</span></h1>
+    </div>
+    <div class="card">
+      <div class="input-group">
+        <label>Şifre</label>
+        <input type="password" id="adminPass" placeholder="••••"
+          onkeydown="if(event.key==='Enter')checkAdmin()">
+      </div>
+      <div class="alert alert-error" id="adminPassAlert">❌ Yanlış şifre!</div>
+      <button class="btn btn-accent btn-lg" onclick="checkAdmin()">Giriş Yap</button>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:0.82rem; margin-top:12px;">
+      Öğrenci misin? <button class="switch-btn" onclick="showScreen('screen-landing')">→ Öğrenci girişine geç</button>
+    </p>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="screen" id="screen-admin">
+  <div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; margin-top:16px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.2rem;">Admin Paneli</div>
+        <div style="color:var(--muted); font-size:0.82rem;">Görev yönetimi</div>
+      </div>
+      <span class="badge badge-yellow">👑 Admin</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>Yeni Görev Ekle</div>
+      <div class="input-group">
+        <label>Başlık *</label>
+        <input type="text" id="taskTitle" placeholder="Görev başlığı...">
+      </div>
+      <div class="input-group">
+        <label>Açıklama *</label>
+        <textarea id="taskDesc" rows="3" placeholder="Öğrenciye gösterilecek ipucu / açıklama..."></textarea>
+      </div>
+      <div class="input-group">
+        <label>Doğru Cevap <span style="color:var(--muted); font-weight:400; text-transform:none">(opsiyonel)</span></label>
+        <input type="text" id="taskAnswer" placeholder="Boş bırakılırsa QR okutmak yeterli...">
+      </div>
+      <div class="alert alert-error" id="taskAddAlert"></div>
+      <button class="btn btn-accent btn-lg" onclick="addTask()">+ Görevi Ekle</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="dot"></span>Görev Listesi
+        <span id="taskCountBadge" class="badge badge-yellow" style="margin-left:4px">0</span>
+      </div>
+      <div id="adminTaskList"><p style="color:var(--muted); font-size:0.88rem;">Henüz görev eklenmedi.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT GAME -->
+<div class="screen" id="screen-student">
+  <div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; margin-top:16px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.2rem;" id="studentGreeting">Merhaba!</div>
+        <div style="color:var(--muted); font-size:0.82rem;" id="studentStatus">Hazır mısın?</div>
+      </div>
+      <span class="badge badge-yellow" id="progressBadge">0/0</span>
+    </div>
+
+    <div class="progress-label">
+      <span>İlerleme</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+
+    <div id="currentTaskArea"></div>
+
+    <button class="btn btn-accent btn-lg" id="scanBtn" onclick="openScanner()" style="margin-bottom:16px">
+      📷 QR Tara
+    </button>
+
+    <div id="scannerArea" style="display:none" class="card">
+      <div class="card-title"><span class="dot"></span>Kamerayı QR koda tut</div>
+      <div class="scan-area">
+        <div id="reader"></div>
+      </div>
+      <button class="btn btn-ghost" style="width:100%; margin-top:12px" onclick="closeScanner()">✕ İptal</button>
+    </div>
+
+    <div class="alert" id="studentAlert"></div>
+  </div>
+</div>
+
+<!-- COMPLETE -->
+<div class="screen" id="screen-complete">
+  <div class="container">
+    <div class="complete-hero">
+      <span class="big-icon">🏆</span>
+      <h2>Tebrikler!</h2>
+      <p id="completeMsg">Tüm görevleri başarıyla tamamladın!</p>
+      <br>
+      <button class="btn btn-accent btn-lg" onclick="showScreen('screen-landing')">🔄 Tekrar Oyna</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal">
+    <h3 id="qrModalTitle">QR Kod</h3>
+    <p id="qrModalSub">Bu QR kodu öğrenciye göster</p>
+    <div id="qr-display"></div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" onclick="downloadQR()">⬇ İndir</button>
+      <button class="btn btn-ghost" onclick="closeQRModal()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let tasks = [];
+let currentUser = null;
+let html5QrCode = null;
+let currentQRTaskId = null;
+let currentStudentTaskIndex = 0;
+let scannerOpen = false;
+let currentScannedTask = null;
+
+// ===== STORAGE =====
+function saveTasks() { localStorage.setItem('qrh_tasks', JSON.stringify(tasks)); }
+function loadTasks() {
+  try { tasks = JSON.parse(localStorage.getItem('qrh_tasks')) || []; } catch(e) { tasks = []; }
+}
+function saveProgress(user, idx) { localStorage.setItem('qrh_progress_' + user, idx); }
+function loadProgress(user) { return parseInt(localStorage.getItem('qrh_progress_' + user)) || 0; }
+
+// ===== SCREEN NAV =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function toggleMode() {
+  const current = document.querySelector('.screen.active').id;
+  if (current.startsWith('screen-admin')) {
+    showScreen('screen-landing');
+    document.getElementById('switchModeBtn').textContent = '👨‍🏫 Admin';
+  } else {
+    goToAdmin();
+  }
+}
+
+function goToAdmin() {
+  showScreen('screen-admin-login');
+  document.getElementById('adminPass').value = '';
+  document.getElementById('adminPassAlert').classList.remove('show');
+  document.getElementById('switchModeBtn').textContent = '👨‍🎓 Öğrenci';
+}
+
+function resetAll() {
+  if (confirm('Tüm veriler (görevler + ilerlemeler) silinecek. Emin misin?')) {
+    localStorage.clear();
+    tasks = [];
+    location.reload();
+  }
+}
+
+// ===== ADMIN AUTH =====
+function checkAdmin() {
+  const pass = document.getElementById('adminPass').value;
+  const alertEl = document.getElementById('adminPassAlert');
+  if (pass === '1234') {
+    alertEl.classList.remove('show');
+    document.getElementById('adminPass').value = '';
+    showScreen('screen-admin');
+    renderAdminTasks();
+  } else {
+    alertEl.classList.add('show');
+    setTimeout(() => alertEl.classList.remove('show'), 2000);
+  }
+}
+
+// ===== ADD TASK =====
+function addTask() {
+  const title = document.getElementById('taskTitle').value.trim();
+  const desc = document.getElementById('taskDesc').value.trim();
+  const answer = document.getElementById('taskAnswer').value.trim();
+  const alertEl = document.getElementById('taskAddAlert');
+
+  if (!title || !desc) {
+    alertEl.textContent = '❌ Başlık ve açıklama zorunludur!';
+    alertEl.classList.add('show');
+    setTimeout(() => alertEl.classList.remove('show'), 2500);
+    return;
+  }
+
+  const task = {
+    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+    title,
+    desc,
+    answer: answer.toLowerCase(),
+    order: tasks.length + 1
+  };
+  tasks.push(task);
+  saveTasks();
+
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskDesc').value = '';
+  document.getElementById('taskAnswer').value = '';
+
+  renderAdminTasks();
+}
+
+function deleteTask(id) {
+  if (!confirm('Bu görevi silmek istiyor musun?')) return;
+  tasks = tasks.filter(t => t.id !== id);
+  tasks.forEach((t, i) => { t.order = i + 1; });
+  saveTasks();
+  renderAdminTasks();
+}
+
+function renderAdminTasks() {
+  const list = document.getElementById('adminTaskList');
+  document.getElementById('taskCountBadge').textContent = tasks.length;
+
+  if (tasks.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted); font-size:0.88rem;">Henüz görev eklenmedi.</p>';
+    return;
+  }
+
+  list.innerHTML = tasks.map((t) => `
+    <div class="task-item">
+      <div class="task-item-header">
+        <span class="task-num">#${t.order}</span>
+        <div style="flex:1">
+          <div class="task-title">${esc(t.title)}</div>
+          <div class="task-desc">${esc(t.desc)}</div>
+          <div style="margin-top:8px">
+            ${t.answer
+              ? `<span class="badge badge-green">🔑 Cevap: ${esc(t.answer)}</span>`
+              : `<span class="badge badge-yellow">📷 QR yeterli</span>`}
+          </div>
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn btn-blue btn-sm" onclick="showQR('${t.id}')">📱 QR Göster</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">🗑 Sil</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== QR GENERATE =====
+// QR icine tum gorev verisini gom - farkli cihazlarda da calisir
+function showQR(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  currentQRTaskId = taskId;
+
+  document.getElementById('qrModalTitle').textContent = task.title;
+  document.getElementById('qrModalSub').textContent = `Gorev #${task.order} icin QR kod`;
+
+  const container = document.getElementById('qr-display');
+  container.innerHTML = '';
+
+  // QR icerigi: JSON olarak gorev verisi - localStorage'a gerek yok
+  const qrPayload = JSON.stringify({
+    qrh: 1,
+    order: task.order,
+    title: task.title,
+    desc: task.desc,
+    answer: task.answer
+  });
+
+  new QRCode(container, {
+    text: qrPayload,
+    width: 200, height: 200,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  document.getElementById('qrModal').classList.add('open');
+}
+
+function closeQRModal() {
+  document.getElementById('qrModal').classList.remove('open');
+}
+
+function downloadQR() {
+  const container = document.getElementById('qr-display');
+  const canvas = container.querySelector('canvas');
+  const img = container.querySelector('img');
+  let src = '';
+
+  if (canvas) {
+    src = canvas.toDataURL('image/png');
+  } else if (img) {
+    src = img.src;
+  } else { return; }
+
+  const task = tasks.find(t => t.id === currentQRTaskId);
+  const a = document.createElement('a');
+  a.href = src;
+  a.download = `qr-gorev-${task ? task.order : '1'}.png`;
+  a.click();
+}
+
+// ===== STUDENT =====
+function startStudent() {
+  const name = document.getElementById('studentName').value.trim();
+  if (!name) {
+    document.getElementById('studentName').focus();
+    return;
+  }
+  currentUser = name;
+  currentStudentTaskIndex = loadProgress(currentUser);
+  showScreen('screen-student');
+  renderStudentScreen();
+}
+
+function renderStudentScreen() {
+  document.getElementById('studentGreeting').textContent = `Merhaba, ${currentUser}! 👋`;
+  updateProgress();
+  renderCurrentTask();
+}
+
+function updateProgress() {
+  const total = tasks.length;
+  const done = currentStudentTaskIndex;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('progressBadge').textContent = `${done}/${total}`;
+  document.getElementById('studentStatus').textContent =
+    (done === total && total > 0) ? '🏆 Tamamlandı!' : `Görev ${done + 1} / ${total}`;
+}
+
+function renderCurrentTask() {
+  const area = document.getElementById('currentTaskArea');
+  const scanBtn = document.getElementById('scanBtn');
+
+  // Gorevler localStorage'da yoksa bile QR tarayarak oynayabilir
+  if (tasks.length === 0) {
+    area.innerHTML = `
+      <div class="card">
+        <p style="color:var(--muted); text-align:center; font-size:0.9rem; line-height:1.6">
+          📷 QR kodunu tara ve göreve başla!<br>
+          <span style="font-size:0.8rem; opacity:0.7">Görevler QR kodlarının içinde gizli</span>
+        </p>
+      </div>`;
+    scanBtn.style.display = 'block';
+    return;
+  }
+
+  if (currentStudentTaskIndex >= tasks.length) {
+    area.innerHTML = '';
+    scanBtn.style.display = 'none';
+    showScreen('screen-complete');
+    document.getElementById('completeMsg').textContent =
+      `${currentUser}, tüm ${tasks.length} görevi başarıyla tamamladın! 🎉`;
+    return;
+  }
+
+  const task = tasks[currentStudentTaskIndex];
+  scanBtn.style.display = 'block';
+
+  area.innerHTML = `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <span class="badge badge-yellow">Görev #${task.order}</span>
+        <span style="font-size:0.8rem; color:var(--muted)">📷 QR kodu tara</span>
+      </div>
+      <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; margin-bottom:10px">
+        ${esc(task.title)}
+      </div>
+      <div style="color:var(--muted); font-size:0.88rem; line-height:1.6">
+        ${esc(task.desc)}
+      </div>
+      ${task.answer ? `
+        <hr class="divider">
+        <div class="input-group" style="margin-bottom:10px">
+          <label>Cevabın</label>
+          <input type="text" id="answerInput" placeholder="Cevabını yaz..."
+            onkeydown="if(event.key==='Enter')checkAnswer()">
+        </div>
+        <button class="btn btn-success" style="width:100%" onclick="checkAnswer()">✅ Cevabı Kontrol Et</button>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ===== SCANNER =====
+function openScanner() {
+  if (tasks.length === 0 || currentStudentTaskIndex >= tasks.length) return;
+  if (scannerOpen) return;
+
+  if (typeof Html5Qrcode === 'undefined') {
+    showStudentAlert('error', '❌ QR kütüphanesi yüklenemedi. İnternet bağlantını kontrol et ve sayfayı yenile.');
+    return;
+  }
+
+  document.getElementById('scannerArea').style.display = 'block';
+  document.getElementById('scanBtn').style.display = 'none';
+  clearStudentAlert();
+  scannerOpen = true;
+
+  try {
+    html5QrCode = new Html5Qrcode('reader');
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 220, height: 220 } },
+      onScanSuccess,
+      () => {}
+    ).catch(function(err) {
+      showStudentAlert('error', '❌ Kamera izni verilmedi. Tarayıcı ayarlarından kamera iznini aç.');
+      closeScanner();
+    });
+  } catch(e) {
+    showStudentAlert('error', '❌ Kamera başlatılamadı: ' + e.message);
+    closeScanner();
+  }
+}
+
+function closeScanner() {
+  document.getElementById('scannerArea').style.display = 'none';
+  document.getElementById('scanBtn').style.display = 'block';
+  scannerOpen = false;
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {});
+    html5QrCode = null;
+  }
+}
+
+function onScanSuccess(decodedText) {
+  closeScanner();
+
+  // QR icerigini parse et
+  var scannedTask = null;
+  try {
+    var parsed = JSON.parse(decodedText);
+    if (parsed && parsed.qrh === 1) {
+      scannedTask = parsed;
+    }
+  } catch(e) {
+    // JSON degil, eski format veya baska QR
+  }
+
+  if (!scannedTask) {
+    showStudentAlert('error', '❌ Geçersiz QR! Bu sisteme ait bir QR Hunter kodu değil.');
+    return;
+  }
+
+  // Sira kontrolu
+  var expectedOrder = currentStudentTaskIndex + 1;
+  if (scannedTask.order !== expectedOrder) {
+    if (scannedTask.order < expectedOrder) {
+      showStudentAlert('error', '⚠️ Bu görevi zaten tamamladın! Sıradaki görev: #' + expectedOrder);
+    } else {
+      showStudentAlert('error', '⚠️ Sırayı atlayamazsın! Önce Görev #' + expectedOrder + ' QR'ını tara.');
+    }
+    return;
+  }
+
+  // Dogru gorev - gostermeye hazir
+  currentScannedTask = scannedTask;
+
+  if (!scannedTask.answer) {
+    // Cevap gerekmez, direkt ilerle
+    advanceTask();
+  } else {
+    // Cevap gerekiyor - gorevi goster, cevap kutusu ac
+    showStudentAlert('info', '✅ Doğru QR tarandı! Şimdi cevabı yaz.');
+    renderScannedTask(scannedTask);
+    setTimeout(function() {
+      var inp = document.getElementById('answerInput');
+      if (inp) inp.focus();
+    }, 100);
+  }
+}
+
+function renderScannedTask(task) {
+  var area = document.getElementById('currentTaskArea');
+  area.innerHTML = `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <span class="badge badge-yellow">Görev #` + task.order + `</span>
+        <span class="badge badge-green">✅ QR Tarandı</span>
+      </div>
+      <div style="font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; margin-bottom:10px">` + esc(task.title) + `</div>
+      <div style="color:var(--muted); font-size:0.88rem; line-height:1.6; margin-bottom:16px">` + esc(task.desc) + `</div>
+      <hr class="divider">
+      <div class="input-group" style="margin-bottom:10px">
+        <label>Cevabın</label>
+        <input type="text" id="answerInput" placeholder="Cevabını yaz..."
+          onkeydown="if(event.key==='Enter')checkAnswer()">
+      </div>
+      <button class="btn btn-success" style="width:100%" onclick="checkAnswer()">✅ Cevabı Kontrol Et</button>
+    </div>
+  `;
+}
+
+function checkAnswer() {
+  var input = document.getElementById('answerInput');
+  if (!input) return;
+  var val = input.value.trim().toLowerCase();
+  // Cevabi hem localStorage'daki hem de scan edilen gorevden al
+  var task = currentScannedTask || tasks[currentStudentTaskIndex];
+  if (!task) return;
+
+  if (val === (task.answer || '').toLowerCase()) {
+    clearStudentAlert();
+    advanceTask();
+  } else {
+    showStudentAlert('error', '❌ Yanlış cevap! Tekrar dene.');
+    input.value = '';
+    input.focus();
+  }
+}
+
+function advanceTask() {
+  currentStudentTaskIndex++;
+  saveProgress(currentUser, currentStudentTaskIndex);
+  updateProgress();
+  clearStudentAlert();
+
+  if (currentStudentTaskIndex >= tasks.length) {
+    renderCurrentTask();
+  } else {
+    showStudentAlert('success', '🎉 Harika! Sıradaki göreve geçiyorsun...');
+    setTimeout(() => {
+      clearStudentAlert();
+      renderCurrentTask();
+    }, 1600);
+  }
+}
+
+// ===== ALERTS =====
+function showStudentAlert(type, msg) {
+  const el = document.getElementById('studentAlert');
+  el.className = 'alert show alert-' + type;
+  el.textContent = msg;
+}
+function clearStudentAlert() {
+  const el = document.getElementById('studentAlert');
+  el.className = 'alert';
+  el.textContent = '';
+}
+
+// ===== UTILS =====
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== INIT =====
+loadTasks();
+</script>
+</body>
+</html>
